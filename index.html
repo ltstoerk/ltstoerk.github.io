@@ -476,13 +476,6 @@ if("ontouchstart" in document)new DragDropTouch();
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}
 </script>
 <script type="module">
-const isMobile=('ontouchstart' in window)||navigator.maxTouchPoints>0;
-if(isMobile){
-  const hm=document.getElementById('help-mobile');
-  const hd=document.getElementById('help-desktop');
-  if(hm)hm.style.display='inline';
-  if(hd)hd.style.display='none';
-}
 
 // ── Mobile detection ──
 const isMobile = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
