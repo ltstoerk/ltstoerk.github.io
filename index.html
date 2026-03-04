@@ -66,6 +66,7 @@ canvas { display:block; }
   position:absolute; right:16px; top:78px; width:268px;
   display:flex; flex-direction:column; gap:8px;
   pointer-events:auto; max-height:calc(100vh - 160px); overflow-y:auto;
+  touch-action:pan-y; -webkit-overflow-scrolling:touch;
 }
 #panel::-webkit-scrollbar{width:3px}
 #panel::-webkit-scrollbar-thumb{background:#d4a84328}
@@ -75,6 +76,8 @@ canvas { display:block; }
   border-left:3px solid rgba(212,168,67,.45); border-radius:6px;
   padding:10px 12px; backdrop-filter:blur(8px); transition:all .25s;
 }
+.qcard .qc-hint, .qcard .qc-prog { display:none; }
+.qcard.active .qc-hint, .qcard.active .qc-prog { display:block; }
 .qcard.done   { border-left-color:#4a8; opacity:.55; cursor:pointer; }
 .qcard.done .qc-desc, .qcard.done .qc-hint, .qcard.done .qc-prog { display:none; }
 .qcard.done .qc-step { margin-bottom:0; }
@@ -82,6 +85,7 @@ canvas { display:block; }
 .qcard.done.expanded .qc-desc, .qcard.done.expanded .qc-hint, .qcard.done.expanded .qc-prog { display:block; }
 .qcard.active { border-left-color:#d4a843; }
 .qcard.locked { border-left-color:#2a2a2a; opacity:.4; }
+.qcard.locked .qc-hint, .qcard.locked .qc-prog { display:none; }
 .qc-step  { font-size:.58rem; color:#705020; letter-spacing:2px; text-transform:uppercase; margin-bottom:3px; }
 .qc-title { font-size:.9rem; color:#d4a843; margin-bottom:4px; }
 .qc-desc  { font-size:.7rem; color:#806040; line-height:1.5; }
@@ -424,7 +428,7 @@ if("ontouchstart" in document)new DragDropTouch();
       <div class="qc-step" style="color:#806030;letter-spacing:1px">STEUERUNG</div>
       <div class="qc-desc" style="font-size:.63rem;line-height:1.85;margin-top:3px">
         <span id="cph-desktop">
-          <b>Drag</b> Karte neben den Weg 🛤️<br>
+          <b>Drag</b> Karte neben den Weg<br>
           <b>Klick</b> Gebäude öffnen<br>
           <b>Scroll</b> Zoom &nbsp;·&nbsp; <b>Rechtsklick+Drag</b> Drehen
         </span>
@@ -1968,7 +1972,7 @@ const _hemiDay=new THREE.Color(0x7ab0d0),_hemiNight=new THREE.Color(0x1a2a4a);
 const TARGET_LIMIT = 22;
 (function loop() {
   requestAnimationFrame(loop);
-  const dt = clk.getDelta();
+  const dt = Math.min(clk.getDelta(), 0.1); // clamp: avoid huge jumps on tab-switch
   charTime += dt;
   const t = charTime;
   ctrl.update();
