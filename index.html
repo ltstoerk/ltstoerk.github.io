@@ -679,7 +679,7 @@ const DECO = [
 // ── Renderer ──────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('c');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
 renderer.setSize(window.visualViewport?Math.round(window.visualViewport.width):innerWidth, window.visualViewport?Math.round(window.visualViewport.height):innerHeight);
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -689,7 +689,7 @@ renderer.outputColorSpace=THREE.SRGBColorSpace;
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x8ab4d8);
-scene.fog=new THREE.FogExp2(0x8ab4d8,0.016);
+scene.fog=new THREE.FogExp2(0x8ab4d8,0.011);
 
 const FS=28, AR=innerWidth/innerHeight;
 const cam=new THREE.OrthographicCamera(-FS*AR/2,FS*AR/2,FS/2,-FS/2,0.1,300);
@@ -711,7 +711,7 @@ ctrl.maxPolarAngle=Math.PI/4.2;
 const ambLight=new THREE.AmbientLight(0xd0c8b0,1.2); scene.add(ambLight);
 const sun=new THREE.DirectionalLight(0xfff0d0,2.8);
 sun.position.set(40,60,30); sun.castShadow=true;
-sun.shadow.mapSize.set(2048,2048);
+sun.shadow.mapSize.set(1024,1024);
 sun.shadow.camera.near=1; sun.shadow.camera.far=180;
 sun.shadow.camera.left=-55; sun.shadow.camera.right=55;
 sun.shadow.camera.top=55; sun.shadow.camera.bottom=-55;
@@ -722,7 +722,7 @@ const hemi=new THREE.HemisphereLight(0x7ab0d0,0x4a3820,0.7); scene.add(hemi);
 const moon=new THREE.DirectionalLight(0x8899cc,0.0); moon.position.set(-40,50,-20); scene.add(moon);
 // Stars sprite
 const starGeo=new THREE.BufferGeometry();
-(()=>{ const verts=[]; for(let i=0;i<600;i++){const th=Math.random()*Math.PI*2,ph=Math.random()*Math.PI; const r=160; verts.push(r*Math.sin(ph)*Math.cos(th),r*Math.cos(ph),r*Math.sin(ph)*Math.sin(th));} starGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3)); })();
+(()=>{ const verts=[]; for(let i=0;i<300;i++){const th=Math.random()*Math.PI*2,ph=Math.random()*Math.PI; const r=160; verts.push(r*Math.sin(ph)*Math.cos(th),r*Math.cos(ph),r*Math.sin(ph)*Math.sin(th));} starGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3)); })();
 const starMat=new THREE.PointsMaterial({color:0xffffff,size:0.7,transparent:true,opacity:0.0,sizeAttenuation:true,depthWrite:false});
 const stars=new THREE.Points(starGeo,starMat); scene.add(stars);
 // Sun/Moon disc sprite
@@ -759,7 +759,7 @@ const lake2=new THREE.Mesh(new THREE.PlaneGeometry(14,10),lakeMat.clone()); lake
   mtnDefs.forEach(({x,z,h,r,c})=>{
     const geo=new THREE.ConeGeometry(r,h,8);
     const mat=new THREE.MeshStandardMaterial({color:c,roughness:0.9,flatShading:true});
-    const m=new THREE.Mesh(geo,mat); m.position.set(x,h/2-0.5,z); m.castShadow=true; scene.add(m);
+    const m=new THREE.Mesh(geo,mat); m.position.set(x,h/2-0.5,z); m.castShadow=false; scene.add(m);
     // Snow cap
     if(h>18){
       const sg=new THREE.ConeGeometry(r*0.3,h*0.22,8);
@@ -797,7 +797,7 @@ const lake2=new THREE.Mesh(new THREE.PlaneGeometry(14,10),lakeMat.clone()); lake
     const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.22,h*0.4,6),new THREE.MeshStandardMaterial({color:0x5a3a18,roughness:1}));
     trunk.position.set(x,h*0.2,z); scene.add(trunk);
     const crown=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),new THREE.MeshStandardMaterial({color:col,roughness:0.9,flatShading:true}));
-    crown.position.set(x,h*0.7,z); crown.castShadow=true; scene.add(crown);
+    crown.position.set(x,h*0.7,z); crown.castShadow=false; scene.add(crown);
   });
 })();
 // Skybox - large sphere with gradient shader
@@ -1266,6 +1266,7 @@ DEFS.forEach(d=>{prod[d.qi]={};});
 const done_q=[false,false,false,false,false];
 const placed=[false,false,false,false,false];
 const bldgTiles=[null,null,null,null,null];
+const bldgObjs=[null,null,null,null,null];
 let qcount=0;
 
 function updateQuestProgress(qi){
@@ -1407,15 +1408,18 @@ function dropBuilding(qi,tile){
     notify('🏗 Im Bau…'); setCS(h,CS.WORK,99);
     setTimeout(()=>{
       scene.remove(scaffold);
-      spawnBuildingWithRise(qi,tile,def);
-      showIdleRing(qi,tile.position);
-      notify(def.name+' fertig gebaut! ✨ Klick zum Produzieren.');
-      assignChars(qi); updateQuestProgress(qi);
-      setTimeout(()=>{
-        if(!h) return; h.locked=false;
-        setCS(h,CS.CELEBRATE,3.5);
-        setTimeout(()=>{if(h)setCS(h,CS.IDLE,3+Math.random()*4);},3800);
-      },500);
+      // Guarantee asset is loaded before building
+      loadOne(def.asset).then(()=>{
+        spawnBuildingWithRise(qi,tile,def);
+        showIdleRing(qi,tile.position);
+        notify(def.name+' fertig gebaut! ✨ Klick zum Produzieren.');
+        assignChars(qi); updateQuestProgress(qi);
+        setTimeout(()=>{
+          if(!h) return; h.locked=false;
+          setCS(h,CS.CELEBRATE,3.5);
+          setTimeout(()=>{if(h)setCS(h,CS.IDLE,3+Math.random()*4);},3800);
+        },500);
+      });
     },1800);
   });
 }
@@ -1442,23 +1446,15 @@ function createScaffold(x,z){
 
 // ── Building rise animation ───────────────────────────────────────────────────
 function spawnBuildingWithRise(qi, tile, def) {
-  let obj = null;
   const g = cache[def.asset];
-  if (g) {
-    obj = g.scene.clone(true);
-    obj.position.set(tile.position.x, 0.18, tile.position.z);
-    obj.scale.setScalar(def.scale);
-    obj.rotation.y = def.rotY || 0;
-    obj.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
-    scene.add(obj);
-  } else {
-    obj = new THREE.Mesh(
-      new THREE.BoxGeometry(2,3,2),
-      new THREE.MeshStandardMaterial({color:0xd4a843,roughness:0.6,emissive:0x331100,emissiveIntensity:0.4})
-    );
-    obj.position.set(tile.position.x, 1.7, tile.position.z);
-    obj.castShadow = true; scene.add(obj);
-  }
+  if (!g) { console.warn('Asset not ready:', def.asset); return; }
+  const obj = g.scene.clone(true);
+  obj.position.set(tile.position.x, 0.18, tile.position.z);
+  obj.scale.setScalar(def.scale);
+  obj.rotation.y = def.rotY || 0;
+  obj.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+  scene.add(obj);
+  bldgObjs[qi] = obj; // register for tap-to-open
   tile.material = new THREE.MeshStandardMaterial({
     color:0x5a8020, roughness:0.7, emissive:0xd4a843, emissiveIntensity:0.18
   });
@@ -1924,6 +1920,9 @@ const clk = new THREE.Clock();
 let charTime = 30.0; // Start bei Mittag
 // Day/night cycle config: full cycle = 60 seconds
 const DAY_DURATION = 60.0;
+// Pre-allocated colors to avoid GC pressure in render loop
+const _fogDay=new THREE.Color(0x8ab4d8),_fogNight=new THREE.Color(0x050d1a);
+const _hemiDay=new THREE.Color(0x7ab0d0),_hemiNight=new THREE.Color(0x1a2a4a);
 const TARGET_LIMIT = 22;
 (function loop() {
   requestAnimationFrame(loop);
@@ -1944,9 +1943,8 @@ const TARGET_LIMIT = 22;
 
   // Sky
   skyMat.uniforms.nightBlend.value = nightBlend;
-  // Fog color lerp day<->night
-  const fogDay=new THREE.Color(0x8ab4d8), fogNight=new THREE.Color(0x050d1a);
-  scene.fog.color.lerpColors(fogDay,fogNight,nightBlend);
+  // Fog color lerp day<->night (use pre-allocated colors)
+  scene.fog.color.lerpColors(_fogDay,_fogNight,nightBlend);
   scene.background=scene.fog.color;
 
   // Sun arc: moves across sky
@@ -1974,7 +1972,7 @@ const TARGET_LIMIT = 22;
   ambLight.intensity = 1.2 - nightBlend * 0.55;
   ambLight.color.setRGB(0.82+0.18*(1-nightBlend), 0.78+0.13*(1-nightBlend), 0.69+0.06*(1-nightBlend)+nightBlend*0.3);
   hemi.intensity = 0.7 - nightBlend * 0.35;
-  hemi.color.lerpColors(new THREE.Color(0x7ab0d0), new THREE.Color(0x1a2a4a), nightBlend);
+  hemi.color.lerpColors(_hemiDay, _hemiNight, nightBlend);
   fill.intensity = 0.5 - nightBlend * 0.35;
 
   // Stars
