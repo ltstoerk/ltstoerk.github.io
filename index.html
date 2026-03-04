@@ -83,6 +83,7 @@ canvas { display:block; }
 .card:hover  { border-color:rgba(212,168,67,.8); transform:translateY(-4px) scale(1.04); }
 .card.dragging { opacity:.3; cursor:grabbing; }
 .card.placed   { opacity:.25; cursor:default; pointer-events:none; }
+.card.locked-card { opacity:.38; filter:grayscale(60%); cursor:not-allowed; }
 .card-canvas { width:78px; height:64px; display:block; margin:0 auto 3px; border-radius:4px; background:rgba(0,0,0,.2); pointer-events:none; }
 .cn { font-size:.64rem; color:#d4a843; letter-spacing:1px; }
 .cs { font-size:.54rem; color:#705020; margin-top:1px; }
@@ -261,11 +262,16 @@ canvas { display:block; }
 
   /* ── Building menu ── */
   #bmenu {
-    bottom: 100px;
-    width: min(98vw, 400px);
+    bottom: 105px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100vw - 16px);
+    max-width: 400px;
     padding: 12px 12px;
-    max-height: 65vh;
+    max-height: 60vh;
     overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
   .bm-desc  { font-size: .68rem; }
   .bm-slots { gap: 6px; }
@@ -383,6 +389,23 @@ if("ontouchstart" in document)new DragDropTouch();
   </div>
 
   <div id="panel">
+    <div class="qcard" id="qc-controls" style="border-left-color:rgba(212,168,67,.55)">
+      <div class="qc-step" style="color:#a08040">STEUERUNG</div>
+      <div class="qc-title" style="font-size:.82rem">🎮 Controls</div>
+      <div class="qc-desc" style="font-size:.64rem;line-height:1.9">
+        <span id="cph-desktop">
+          <b>Drag</b> Karte neben den Weg 🛤️<br>
+          <b>Klick</b> Gebäude öffnen<br>
+          <b>Scroll</b> Zoom &nbsp;·&nbsp; <b>Rechtsklick+Drag</b> Drehen
+        </span>
+        <span id="cph-mobile" style="display:none">
+          <b>Halten &amp; Ziehen</b> Karte auf Feld 🛤️<br>
+          <b>Tippen</b> Gebäude öffnen<br>
+          <b>2 Finger</b> Zoom &amp; Drehen<br>
+          <b>1 Finger</b> Ansicht verschieben
+        </span>
+      </div>
+    </div>
     <div class="qcard active" id="qc0">
       <div class="qc-step">Schritt 1 · Wissen</div>
       <div class="qc-title">Das Weizenfeld</div>
@@ -494,6 +517,10 @@ if(isMobile){
   const hd=document.getElementById('help-desktop');
   if(hm) hm.style.display='inline';
   if(hd) hd.style.display='none';
+  const cphM=document.getElementById('cph-mobile');
+  const cphD=document.getElementById('cph-desktop');
+  if(cphM) cphM.style.display='inline';
+  if(cphD) cphD.style.display='none';
 }
 
 import * as THREE from 'three';
@@ -649,7 +676,7 @@ cam.position.set(30,30,30); cam.lookAt(0,0,0);
 const ctrl=new OrbitControls(cam,renderer.domElement);
 ctrl.enableRotate=true;
 ctrl.mouseButtons={LEFT:null,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.ROTATE};
-ctrl.touches={ONE:null,TWO:THREE.TOUCH.DOLLY_PAN};
+ctrl.touches={ONE:THREE.TOUCH.PAN,TWO:THREE.TOUCH.DOLLY_ROTATE};
 ctrl.enableDamping=true; ctrl.dampingFactor=0.08;
 ctrl.minZoom=0.3; ctrl.maxZoom=4;
 ctrl.maxPolarAngle=Math.PI/2.3; ctrl.minPolarAngle=Math.PI/7;
@@ -1062,6 +1089,7 @@ function reveal(){
   setTimeout(()=>{
     document.getElementById('loading').classList.add('out');
     setTimeout(()=>document.getElementById('loading').style.display='none',1300);
+    updateCardStates();
     notify('Willkommen! Karten neben den Weg ziehen 🛤️');
   },400);
 }
@@ -1247,7 +1275,7 @@ function tileAt(e){
   const qi=parseInt(el.dataset.quest);
   el.addEventListener('dragstart',e=>{
     if(placed[qi]||done_q[qi]){e.preventDefault();return;}
-    if(qi>0&&!done_q[qi-1]){e.preventDefault();notify('🔒 Erst vorherige Quest abschließen!');return;}
+    if(qi>0&&!done_q[qi-1]){e.preventDefault();notify('🔒 Erst Quest '+qi+' abschließen!');return;}
     drag=qi; dragDef=DEFS[qi]; el.classList.add('dragging');
     const g=cache[dragDef.asset];
     if(g){const m=g.scene.clone();m.scale.setScalar(dragDef.scale||1.0);m.rotation.y=dragDef.rotY||0;createGhost(m);}
@@ -1302,6 +1330,15 @@ canvas.addEventListener('drop',e=>{
   if(!t.userData.adj){notify('🛤️ Nur neben dem Weg baubar!');flashInvalidTile(t);return;}
   dropBuilding(drag,t);
 });
+
+function updateCardStates(){
+  DEFS.forEach((_,i)=>{
+    const el=document.getElementById('card'+i);
+    if(!el)return;
+    const locked=i>0&&!done_q[i-1]&&!placed[i]&&!done_q[i];
+    el.classList.toggle('locked-card',locked);
+  });
+}
 
 function dropBuilding(qi,tile){
   const def=DEFS[qi];
@@ -1678,6 +1715,7 @@ function completeQ(qi) {
     }
     if (qcount === 3) setTimeout(() => document.getElementById('completion').classList.add('show'), 1200);
   });
+  updateCardStates();
 }
 
 window.closeDlg = function() {
@@ -1840,15 +1878,19 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && activeBM >= 0) closeBM();
 });
 const clk = new THREE.Clock();
-let charTime = 0;
-// Day/night cycle config: full cycle = 120 seconds real time
-const DAY_DURATION = 120.0;
+let charTime = 30.0; // Start bei Mittag
+// Day/night cycle config: full cycle = 60 seconds
+const DAY_DURATION = 60.0;
+const TARGET_LIMIT = 22;
 (function loop() {
   requestAnimationFrame(loop);
   const dt = clk.getDelta();
   charTime += dt;
   const t = charTime;
   ctrl.update();
+  // Clamp camera pan to grid area
+  ctrl.target.x=Math.max(-TARGET_LIMIT,Math.min(TARGET_LIMIT,ctrl.target.x));
+  ctrl.target.z=Math.max(-TARGET_LIMIT,Math.min(TARGET_LIMIT,ctrl.target.z));
 
   // ── Day/Night cycle ──
   const dayPhase = (t % DAY_DURATION) / DAY_DURATION; // 0..1
@@ -1987,7 +2029,12 @@ canvas.addEventListener('touchend',e=>{
   el.addEventListener('touchstart',e=>{
     const qi=parseInt(el.dataset.quest);
     if(placed[qi]||done_q[qi])return;
-    if(qi>0&&!done_q[qi-1]){notify('🔒 Erst vorherige Quest abschließen!');return;}
+    if(qi>0&&!done_q[qi-1]){
+      notify('🔒 Erst Quest '+qi+' abschließen!');
+      el.style.transform='translateX(-5px) scale(0.97)';
+      setTimeout(()=>el.style.transform='',350);
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     drag=qi;dragDef=DEFS[qi];
