@@ -63,14 +63,13 @@ canvas { display:block; }
 .tb-prog { font-size:.78rem; color:#906828; }
 
 #panel {
-  scrollbar-width:none; -ms-overflow-style:none;
   position:absolute; right:16px; top:78px; width:268px;
   display:flex; flex-direction:column; gap:8px;
   pointer-events:auto; max-height:calc(100vh - 160px); overflow-y:auto;
   touch-action:pan-y; -webkit-overflow-scrolling:touch;
   overscroll-behavior:contain;
 }
-#panel::-webkit-scrollbar{width:0}
+#panel::-webkit-scrollbar{width:3px}
 #panel::-webkit-scrollbar-thumb{background:#d4a84328}
 
 .qcard {
@@ -95,7 +94,6 @@ canvas { display:block; }
 .qc-prog  { font-size:.68rem; color:#4a9a6a; margin-top:5px; font-weight:bold; }
 
 #tray {
-  touch-action: pan-x;
   position:absolute; bottom:0; left:0; right:0; padding:12px 18px calc(16px + env(safe-area-inset-bottom));
   background:linear-gradient(0deg,rgba(8,5,2,.97) 0%,transparent 100%);
   display:flex; gap:10px; align-items:flex-end; justify-content:center; flex-wrap:wrap;
@@ -115,7 +113,7 @@ canvas { display:block; }
 .cs { font-size:.54rem; color:#705020; margin-top:1px; }
 
 #notif {
-  position:absolute; top:104px; left:50%; transform:translateX(-50%);
+  position:absolute; top:82px; left:50%; transform:translateX(-50%);
   background:rgba(8,5,2,.92); border:1px solid rgba(212,168,67,.45);
   padding:6px 18px; border-radius:18px; font-size:.76rem; color:#d4a843;
   pointer-events:none; opacity:0; transition:opacity .35s; white-space:nowrap; z-index:200;
@@ -126,7 +124,6 @@ canvas { display:block; }
 #bmenu-overlay.show { display:block; }
 
 #bmenu {
-  scrollbar-width:none; -ms-overflow-style:none;
   position:absolute; bottom:115px; left:50%; transform:translateX(-50%);
   width:min(530px,93vw); background:rgba(5,3,1,.97);
   border:1px solid rgba(212,168,67,.5); border-radius:12px;
@@ -217,6 +214,7 @@ canvas { display:block; }
 #help { position:absolute; bottom:105px; left:16px; background:rgba(8,5,2,.78); border:1px solid rgba(212,168,67,.15); padding:8px 12px; border-radius:6px; font-size:.65rem; color:#604820; line-height:1.9; pointer-events:none; }
 .hk { display:inline-block; background:rgba(212,168,67,.09); border:1px solid rgba(212,168,67,.28); padding:1px 5px; border-radius:3px; color:#a08040; font-size:.6rem; margin-right:3px; }
 
+@keyframes tutBob { from{transform:translateY(0)} to{transform:translateY(-5px)} }
 @keyframes collectFloat {
   0%   { transform:translateY(0) scale(1); opacity:1; }
   60%  { opacity:1; }
@@ -270,7 +268,6 @@ canvas { display:block; }
 
   /* ── Card tray — smaller cards, horizontal scroll ── */
   #tray {
-    touch-action: pan-x;
     padding: 8px 8px 12px;
     gap: 6px;
     flex-wrap: nowrap;
@@ -282,7 +279,7 @@ canvas { display:block; }
     width: 72px;
     flex-shrink: 0;
     padding: 4px 5px 6px;
-    touch-action: pan-x;
+    touch-action: none;
   }
   .card-canvas { width: 62px; height: 50px; }
   .cn { font-size: .58rem; }
@@ -319,7 +316,7 @@ canvas { display:block; }
 
   /* ── Notification ── */
   #notif {
-    top: 72px;
+    top: 52px;
     font-size: .68rem;
     padding: 5px 14px;
     max-width: 90vw;
@@ -446,7 +443,7 @@ if("ontouchstart" in document)new DragDropTouch();
       </div>
     </div>
     <div class="qcard active" id="qc0">
-      <div class="qc-step">Schritt 1 · Wissens-Basis</div>
+      <div class="qc-step">Schritt 1 · Wissen</div>
       <div class="qc-title">Das Weizenfeld</div>
       <div class="qc-desc">5 Jahre Studium, Game Design und Programming. Bit für Bit, Frame für Frame.</div>
       <div class="qc-hint" id="qh0">👇 Weizenfeld-Karte neben den Weg ziehen</div>
@@ -485,7 +482,7 @@ if("ontouchstart" in document)new DragDropTouch();
   <div id="tray">
     <div class="card" id="card0" data-quest="0">
       <canvas class="card-canvas" id="cc0" width="156" height="128"></canvas>
-      <div class="cn">Weizenfeld</div><div class="cs">Wissens-Basis</div>
+      <div class="cn">Weizenfeld</div><div class="cs">Knowledge-Base</div>
     </div>
     <div class="card" id="card1" data-quest="1">
       <canvas class="card-canvas" id="cc1" width="156" height="128"></canvas>
@@ -1174,6 +1171,7 @@ window.doReveal=function(){
   setTimeout(()=>document.getElementById('loading').style.display='none',1300);
   updateCardStates();
   notify('Willkommen! Karten neben den Weg ziehen 🛤️');
+  scheduleTut();
 }
 
 // ── Characters ────────────────────────────────────────────────────────────────
@@ -1357,6 +1355,7 @@ function tileAt(e){
   // draggable set dynamically by updateCardStates()
   const qi=parseInt(el.dataset.quest);
   el.addEventListener('dragstart',e=>{
+    cancelTut();
     if(placed[qi]||done_q[qi]){e.preventDefault();return;}
     if(qi>0&&!done_q[qi-1]){e.preventDefault();notify('🔒 Erst Quest '+qi+' abschließen!');return;}
     drag=qi; dragDef=DEFS[qi]; el.classList.add('dragging');
@@ -1436,6 +1435,7 @@ function updateCardStates(){
 }
 
 function dropBuilding(qi,tile){
+  cancelTut();
   const def=DEFS[qi];
   tile.userData.occ=true; tile.userData.qi=qi;
   placed[qi]=true; bldgTiles[qi]=tile;
@@ -1908,6 +1908,84 @@ function notify(m) {
   clearTimeout(nT); nT = setTimeout(() => el.classList.remove('show'), 3200);
 }
 
+// ── Tutorial hint animation ───────────────────────────────────────────────
+let tutTimer=null, tutAnimActive=false, tutEl=null, tutHlTile=null;
+
+function _tutTargetScreen(){
+  const t=tiles.find(t=>!t.userData.occ&&!t.userData.onPath&&t.userData.adj);
+  if(!t) return null;
+  const pos=t.position.clone(); pos.y=0.5; pos.project(cam);
+  const W=renderer.domElement.clientWidth||innerWidth;
+  const H=renderer.domElement.clientHeight||innerHeight;
+  return {x:(pos.x+1)/2*W, y:(-pos.y+1)/2*H, tile:t};
+}
+
+function startTutAnim(){
+  if(tutAnimActive||placed[0]||done_q[0]) return;
+  const card=document.getElementById('card0');
+  if(!card) return;
+  const cr=card.getBoundingClientRect();
+  const srcX=cr.left+cr.width/2, srcY=cr.top+cr.height/2;
+  const tgt=_tutTargetScreen();
+  if(!tgt){return;}
+  tutAnimActive=true;
+  // highlight target tile
+  tutHlTile=tgt.tile;
+  tutHlTile.material.emissive=new THREE.Color(0xd4a843);
+  tutHlTile.material.emissiveIntensity=0.6;
+  // build ghost element
+  if(tutEl){tutEl.remove();tutEl=null;}
+  tutEl=document.createElement('div');
+  tutEl.style.cssText=
+    'position:fixed;pointer-events:none;z-index:9000;'+
+    'width:'+cr.width+'px;height:'+cr.height+'px;'+
+    'background:rgba(14,9,4,.93);border:2px solid rgba(212,168,67,.95);'+
+    'border-radius:8px;box-shadow:0 0 24px rgba(212,168,67,.7);'+
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;'+
+    'left:'+(srcX-cr.width/2)+'px;top:'+(srcY-cr.height/2)+'px;opacity:1;';
+  // copy card label text
+  const cn=card.querySelector('.cn'), cs=card.querySelector('.cs');
+  tutEl.innerHTML=
+    '<div style="font-size:.62rem;color:#d4a843;letter-spacing:1px">'+(cn?cn.textContent:'')+'</div>'+
+    '<div style="font-size:.52rem;color:#705020;margin-top:1px">'+(cs?cs.textContent:'')+'</div>'+
+    '<div style="font-size:1.3rem;margin-top:4px;animation:tutBob .7s ease-in-out infinite alternate">👆</div>';
+  document.body.appendChild(tutEl);
+  // animate card from tray to target tile
+  const dur=1500;
+  const t0=performance.now();
+  const dstX=tgt.x-cr.width/2, dstY=tgt.y-cr.height/2;
+  function step(now){
+    if(!tutAnimActive) return;
+    let p=Math.min(1,(now-t0)/dur);
+    const e=p<0.5?2*p*p:-1+(4-2*p)*p;
+    const cx=srcX-cr.width/2+(dstX-(srcX-cr.width/2))*e;
+    const cy=srcY-cr.height/2+(dstY-(srcY-cr.height/2))*e;
+    tutEl.style.left=cx+'px'; tutEl.style.top=cy+'px';
+    tutEl.style.opacity=p>0.8?String(1-(p-0.8)/0.2):'1';
+    if(p<1){requestAnimationFrame(step);}
+    else{setTimeout(()=>{stopTutAnim(); scheduleTut();},1000);}
+  }
+  requestAnimationFrame(step);
+}
+
+function stopTutAnim(){
+  tutAnimActive=false;
+  if(tutEl){tutEl.remove();tutEl=null;}
+  if(tutHlTile){tutHlTile.material.emissiveIntensity=0; tutHlTile=null;}
+}
+
+function cancelTut(){
+  clearTimeout(tutTimer); tutTimer=null;
+  stopTutAnim();
+}
+
+function scheduleTut(){
+  clearTimeout(tutTimer);
+  if(placed[0]||done_q[0]) return;
+  tutTimer=setTimeout(startTutAnim, 5000);
+}
+
+
 
 // ── Story toast ───────────────────────────────────────────────────────────────
 let storyToastTimer = null;
@@ -2044,6 +2122,9 @@ const TARGET_LIMIT = 22;
 
   updateChars(dt);
   animateBubbles(t);
+  if(tutHlTile && tutAnimActive){
+    tutHlTile.material.emissiveIntensity=0.35+0.35*Math.sin(t*4.5);
+  }
   renderer.render(scene, cam);
 })();
 
