@@ -80,7 +80,7 @@ canvas { display:block; }
 .qcard.done .qc-step { margin-bottom:0; }
 .qcard.done:hover { opacity:.75; }
 .qcard.done.expanded .qc-desc, .qcard.done.expanded .qc-hint, .qcard.done.expanded .qc-prog { display:block; }
-.qcard.active { border-left-color:#d4a843; box-shadow:0 0 16px rgba(212,168,67,.1); }
+.qcard.active { border-left-color:#d4a843; }
 .qcard.locked { border-left-color:#2a2a2a; opacity:.4; }
 .qc-step  { font-size:.58rem; color:#705020; letter-spacing:2px; text-transform:uppercase; margin-bottom:3px; }
 .qc-title { font-size:.9rem; color:#d4a843; margin-bottom:4px; }
@@ -187,7 +187,7 @@ canvas { display:block; }
 .ct  { font-size:1.6rem; color:#d4a843; letter-spacing:4px; margin-bottom:7px; }
 .cq  { font-size:.85rem; color:#a08060; font-style:italic; margin-bottom:14px; }
 .cbody { font-size:.78rem; color:#705030; line-height:1.7; margin-bottom:20px; }
-.cvb { background:linear-gradient(135deg,#d4a843,#b88828); border:none; color:#060402; font-weight:bold; padding:10px 26px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.82rem; letter-spacing:2px; margin-right:8px; transition:all .2s; }
+.cvb { background:linear-gradient(135deg,#d4a843,#b88828); border:none; color:#060402; font-weight:bold; padding:10px 26px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.82rem; letter-spacing:2px; margin-right:3px; transition:all .2s; }
 .cvb:hover { transform:translateY(-2px); }
 .clb { background:transparent; border:1px solid rgba(212,168,67,.32); color:#705030; padding:10px 16px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.78rem; }
 .clb:hover { border-color:rgba(212,168,67,.7); color:#a08040; }
@@ -429,9 +429,10 @@ if("ontouchstart" in document)new DragDropTouch();
           <b>Scroll</b> Zoom &nbsp;·&nbsp; <b>Rechtsklick+Drag</b> Drehen
         </span>
         <span id="cph-mobile" style="display:none">
-          <b>Halte &amp; Ziehe</b> Karte auf Feld<br>
+          <b>Ziehe</b> Karte auf ein Feld<br>
           <b>Tippen</b> Gebäude öffnen<br>
-          <b>2 Finger</b> Zoom &amp; Drehen &nbsp;·&nbsp; <b>1 Finger</b> Verschieben
+          <b>2 Finger</b> Zoom &amp; Drehen<br>
+          <b>1 Finger</b> Verschieben
         </span>
       </div>
     </div>
@@ -1082,16 +1083,62 @@ const essentialNames=[...new Set([...DEFS.map(d=>d.asset),'Animated Base Charact
 const decoNames=[...new Set(DECO.map(d=>d.f))];
 let doneCount=0;
 
+// ── Loading screen: fake progress bar + dev messages ─────────────────────
+const DEV_MSGS = [
+  'Game-Loop wird designt...',
+  'Spielmechaniken werden balanciert...',
+  'Bug-Fixes werden implementiert...',
+  'Shader werden kompiliert...',
+  'Assets werden optimiert...',
+  'KI-Verhalten wird programmiert...',
+  'Performance wird optimiert...',
+  'Level-Design wird finalisiert...',
+  'Game wird gepublished...'
+];
+let _ldFakeProgress = 0;       // current fake bar value 0..100
+let _ldAssetsReady = false;
+let _ldStartTime = performance.now();
+const _ldBar = document.getElementById('ldf');
+const _ldTip = document.getElementById('ldt');
+let _ldMsgIdx = 0;
+
+// Message rotation every 2.4s
+const _ldMsgInterval = setInterval(() => {
+  _ldTip.textContent = DEV_MSGS[_ldMsgIdx++ % DEV_MSGS.length];
+}, 2400);
+_ldTip.textContent = DEV_MSGS[0];  // show first immediately
+
+// Fake bar: ramps quickly to 95%, then holds until assets+7s are ready
+const _ldBarInterval = setInterval(() => {
+  const elapsed = (performance.now() - _ldStartTime) / 1000;
+  const minDone = elapsed >= 7;
+  const canFinish = _ldAssetsReady && minDone;
+  if (canFinish) {
+    _ldFakeProgress = 100;
+    _ldBar.style.width = '100%';
+    clearInterval(_ldBarInterval);
+    clearInterval(_ldMsgInterval);
+    _ldTip.textContent = '✓ Bereit zum Spielen!';
+    setTimeout(() => {
+      document.getElementById('ld-bar-wrap').style.display = 'none';
+      _ldTip.style.display = 'none';
+      document.getElementById('ld-start').style.display = 'inline-block';
+    }, 600);
+  } else if (_ldFakeProgress < 95) {
+    // Fast ramp: reaches ~95% in about 3-4s
+    _ldFakeProgress = Math.min(95, _ldFakeProgress + (Math.random() * 4 + 3));
+    _ldBar.style.width = _ldFakeProgress.toFixed(1) + '%';
+  }
+}, 160);
+
 Promise.all(essentialNames.map(name=>
   loadOne(name).then(g=>{
     doneCount++;
-    document.getElementById('ldf').style.width=Math.round(doneCount/essentialNames.length*100)+'%';
-    document.getElementById('ldt').textContent=(g?'✓ ':'– ')+name.replace('.glb','');
   })
 )).then(()=>{
   buildCardPreviews();
   spawnChars();
-  reveal();
+  _ldAssetsReady = true;
   // Re-run card previews after delay in case mobile loaded assets late
   setTimeout(()=>buildCardPreviews(), 1500);
   setTimeout(()=>{ buildCardPreviews(); spawnChars(); }, 4000);
@@ -1110,13 +1157,8 @@ function buildCardPreviews(){
   });
 }
 function reveal(){
-  document.getElementById('ldf').style.width='100%';
-  document.getElementById('ldt').textContent='✓ Welt bereit!';
-  setTimeout(()=>{
-    document.getElementById('ld-bar-wrap').style.display='none';
-    document.getElementById('ldt').style.display='none';
-    document.getElementById('ld-start').style.display='inline-block';
-  },600);
+  // Reveal is now handled by the fake progress bar + _ldAssetsReady flag
+  // This function is kept as a no-op to avoid reference errors
 }
 window.doReveal=function(){
   document.getElementById('loading').classList.add('out');
@@ -1919,7 +1961,7 @@ document.addEventListener('keydown', e => {
 const clk = new THREE.Clock();
 let charTime = 30.0; // Start bei Mittag
 // Day/night cycle config: full cycle = 60 seconds
-const DAY_DURATION = 60.0;
+const DAY_DURATION = 120.0;
 // Pre-allocated colors to avoid GC pressure in render loop
 const _fogDay=new THREE.Color(0x8ab4d8),_fogNight=new THREE.Color(0x050d1a);
 const _hemiDay=new THREE.Color(0x7ab0d0),_hemiNight=new THREE.Color(0x1a2a4a);
@@ -1935,7 +1977,15 @@ const TARGET_LIMIT = 22;
   ctrl.target.z=Math.max(-TARGET_LIMIT,Math.min(TARGET_LIMIT,ctrl.target.z));
 
   // ── Day/Night cycle ──
-  const dayPhase = (t % DAY_DURATION) / DAY_DURATION; // 0..1
+  // Warped phase: day takes 2/3 of real time, night 1/3 (night runs 2x faster)
+  const _rawPhase = (t % DAY_DURATION) / DAY_DURATION; // 0..1 linear
+  const DAY_FRAC = 2/3; // fraction of real time spent in day half
+  let dayPhase;
+  if (_rawPhase < DAY_FRAC) {
+    dayPhase = (_rawPhase / DAY_FRAC) * 0.5;           // day half: 0..0.5
+  } else {
+    dayPhase = 0.5 + ((_rawPhase - DAY_FRAC) / (1 - DAY_FRAC)) * 0.5; // night half: 0.5..1.0
+  }
   // nightBlend: 0=day, 1=night. Use smooth sine curve.
   // Day: phase 0.0-0.35 and 0.9-1.0, Night: 0.5-0.75, transitions in between
   const nb = Math.max(0, Math.sin(dayPhase * Math.PI * 2 - Math.PI * 0.5) * -0.5 + 0.5);
