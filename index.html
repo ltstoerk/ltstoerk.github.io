@@ -1804,6 +1804,7 @@ document.addEventListener('touchend',e=>{
     const qi=parseInt(el.dataset.quest);
     if(placed[qi]||doneq[qi])return;
     if(qi>0&&!doneq[qi-1]){notify('🔒 Erst vorherige Quest abschließen!');return;}
+    e.preventDefault();
     e.stopPropagation();
     drag=qi;dragDef=DEFS[qi];
     el.classList.add('dragging');
