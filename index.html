@@ -5,8 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Forge of Career · Lucas Störk</title>
 <style>
+html { overflow:hidden; height:100%; width:100%; }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#1a2510; font-family:'Georgia',serif; overflow:hidden; color:#f0e6c8; user-select:none; overscroll-behavior:none; }
+body { background:#1a2510; font-family:'Georgia',serif; overflow:hidden; width:100%; height:100%; color:#f0e6c8; user-select:none; overscroll-behavior:none; }
 
 #loading {
   position:fixed; inset:0; z-index:9999;
@@ -37,7 +38,7 @@ body { background:#1a2510; font-family:'Georgia',serif; overflow:hidden; color:#
 .ld-tip   { margin-top:1.2rem; color:#604820; font-size:.75rem; font-style:italic; max-width:min(400px,85vw); text-align:center; }
 .ld-err   { margin-top:.6rem; color:#c05030; font-size:.65rem; max-width:380px; text-align:center; min-height:1rem; }
 
-canvas { display:block; }
+canvas { display:block; position:fixed; top:0; left:0; width:100% !important; height:100% !important; }
 #ui { position:fixed; inset:0; pointer-events:none; z-index:100; }
 
 #topbar {
@@ -151,7 +152,11 @@ canvas { display:block; }
   border:1px solid rgba(212,168,67,.5); border-radius:12px;
   padding:16px 18px; display:none; pointer-events:auto;
   backdrop-filter:blur(16px); box-shadow:0 0 50px rgba(212,168,67,.08); z-index:300;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
 }
+#bmenu::-webkit-scrollbar { display: none; }
 #bmenu.show { display:block; animation:su .28s ease; }
 @keyframes su { from{opacity:0;transform:translateX(-50%) translateY(14px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
 .bm-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:11px; }
@@ -584,13 +589,31 @@ if(isMobile){
 // Durch Stop der Propagation in bmenu / panel bleibt natives Scrollen möglich;
 // unsere Listener sind passiv, also kann der Browser frei scrollen.
 if ('ontouchstart' in window) {
-  const stopProp = e => e.stopPropagation();
-  ['bmenu', 'panel'].forEach(id => {
-    const el = document.getElementById(id);
+  // Robust scroll fix: use stopImmediatePropagation in CAPTURE phase
+  // so DragDropTouch (registered on document bubble) never sees touch events inside panels
+  const makeScrollFix = (el) => {
     if (!el) return;
-    el.addEventListener('touchstart', stopProp, { passive: false });
-    el.addEventListener('touchmove',  stopProp, { passive: false });
-  });
+    let startY = 0;
+    // Capture phase: fires BEFORE any bubble phase listeners (incl. DragDropTouch)
+    el.addEventListener('touchstart', e => {
+      startY = e.touches[0].clientY;
+      e.stopImmediatePropagation();
+    }, { passive: true, capture: true });
+
+    el.addEventListener('touchmove', e => {
+      e.stopImmediatePropagation();
+      // Only prevent default if horizontal swipe to keep vertical scroll native
+      const dy = Math.abs(e.touches[0].clientY - startY);
+      const dx = Math.abs(e.touches[0].clientX - (e.touches[0].screenX - e.touches[0].clientX + startY));
+      // Allow browser to scroll natively - don't call preventDefault
+    }, { passive: true, capture: true });
+
+    el.addEventListener('touchend', e => {
+      e.stopImmediatePropagation();
+    }, { passive: true, capture: true });
+  };
+
+  ['bmenu', 'panel'].forEach(id => makeScrollFix(document.getElementById(id)));
 }
 // ────────────────────────────────────────────────────────────────────────
 
