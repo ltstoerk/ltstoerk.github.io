@@ -87,6 +87,13 @@ canvas { display:block; }
   display: none;
 }
 
+/* WebKit-Scrollbalken im Gebäude-Menü ausblenden */
+#bmenu::-webkit-scrollbar,
+#bmenu::-webkit-scrollbar-track,
+#bmenu::-webkit-scrollbar-thumb {
+  display: none;
+}
+
 .qcard {
   background:rgba(8,5,2,.88); border:1px solid rgba(212,168,67,.18);
   border-left:3px solid rgba(212,168,67,.45); border-radius:6px;
@@ -315,6 +322,7 @@ canvas { display:block; }
     touch-action: pan-y;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    scrollbar-width: none;
   }
   .bm-desc  { font-size: .68rem; }
   .bm-slots { gap: 6px; }
@@ -580,8 +588,8 @@ if ('ontouchstart' in window) {
   ['bmenu', 'panel'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    el.addEventListener('touchstart', stopProp, { passive: true });
-    el.addEventListener('touchmove',  stopProp, { passive: true });
+    el.addEventListener('touchstart', stopProp, { passive: false });
+    el.addEventListener('touchmove',  stopProp, { passive: false });
   });
 }
 // ────────────────────────────────────────────────────────────────────────
