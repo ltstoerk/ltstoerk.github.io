@@ -220,9 +220,9 @@ canvas { display:block; }
 .ct  { font-size:1.6rem; color:#d4a843; letter-spacing:4px; margin-bottom:7px; }
 .cq  { font-size:.85rem; color:#a08060; font-style:italic; margin-bottom:14px; }
 .cbody { font-size:.78rem; color:#705030; line-height:1.7; margin-bottom:20px; }
-.cvb { background:linear-gradient(135deg,#d4a843,#b88828); border:none; color:#060402; font-weight:bold; padding:10px 26px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.82rem; letter-spacing:2px; margin-right:3px; transition:all .2s; }
+.cvb { background:linear-gradient(135deg,#d4a843,#b88828); border:none; color:#060402; font-weight:bold; padding:10px 26px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.82rem; letter-spacing:2px; margin-right:0; transition:all .2s; -webkit-user-drag:none; user-select:none; }
 .cvb:hover { transform:translateY(-2px); }
-.clb { background:transparent; border:1px solid rgba(212,168,67,.32); color:#705030; padding:10px 16px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.78rem; }
+.clb { background:transparent; border:1px solid rgba(212,168,67,.32); color:#705030; padding:10px 16px; border-radius:7px; cursor:pointer; font-family:'Georgia',serif; font-size:.78rem; display:block; margin-top:10px; }
 .clb:hover { border-color:rgba(212,168,67,.7); color:#a08040; }
 
 #story-toast {
@@ -566,7 +566,7 @@ if("ontouchstart" in document)new DragDropTouch();
     <div class="ct">QUEST COMPLETE!</div>
     <div class="cq">„Merge-Request erfolgreich gestellt."</div>
     <div class="cbody">Das Königreich steht. Das Team ist aufgestellt. Die Vision ist klar.<br><br>Bereit für den nächsten großen Schritt?</div>
-    <a href="cv.pdf" download class="cvb" style="text-decoration:none;display:inline-block">⬇ CV herunterladen</a>
+    <a href="cv.pdf" download class="cvb" draggable="false" style="text-decoration:none;display:inline-block;user-select:none">⬇ CV herunterladen</a>
     <button class="clb" onclick="document.getElementById('completion').classList.remove('show')">Weiter erkunden</button>
   </div>
 </div>
