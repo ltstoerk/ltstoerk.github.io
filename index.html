@@ -1301,7 +1301,7 @@ window.doReveal=function(){
   const itEl=document.getElementById('intro-title');
   setTimeout(()=>{itEl.style.opacity='1';itEl.classList.add('show');},350);
   // 7. Title card fades out just before descent
-  setTimeout(()=>{itEl.style.opacity='0';},_introDelay-180);
+  setTimeout(()=>{itEl.style.opacity='0';},_introDelay-300);
   // 8. Letterbox slides out as descent begins
   setTimeout(()=>{
     document.getElementById('intro-bars').classList.remove('show');
@@ -2214,9 +2214,16 @@ const _fogDay=new THREE.Color(0x8ab4d8),_fogNight=new THREE.Color(0x050d1a);
 const _hemiDay=new THREE.Color(0x7ab0d0),_hemiNight=new THREE.Color(0x1a2a4a);
 const TARGET_LIMIT = 22;
 // ── Intro cinematic config ────────────────────────────────────────────────────
-const _introDur=3600;           // flight duration ms
-const _introDelay=700;          // aerial hold before descent starts
-const _camFrom=new THREE.Vector3(0,300,190), _camTo=new THREE.Vector3(30,30,30);
+const _introDur=7200;           // flight duration ms (2× cinematic)
+const _introDelay=1400;         // aerial hold ms (2×) — title card visible longer
+// _camTo computed to exactly match ctrl.minPolarAngle=Math.PI/4.2 → zero snap on handoff
+const _camFrom=new THREE.Vector3(0,300,190);
+const _LAND_PHI=Math.PI/4.2, _LAND_R=52, _LAND_THETA=Math.PI/4;
+const _camTo=new THREE.Vector3(
+  _LAND_R*Math.sin(_LAND_PHI)*Math.sin(_LAND_THETA),  // ≈25.0
+  _LAND_R*Math.cos(_LAND_PHI),                        // ≈38.1
+  _LAND_R*Math.sin(_LAND_PHI)*Math.cos(_LAND_THETA)   // ≈25.0
+);
 // Precomputed orbital-arc params (polar coords of _camFrom/_camTo in XZ plane)
 const _iSwFA=Math.atan2(_camFrom.z,_camFrom.x), _iSwFR=Math.sqrt(_camFrom.x**2+_camFrom.z**2);
 const _iSwTA=Math.atan2(_camTo.z,_camTo.x),   _iSwTR=Math.sqrt(_camTo.x**2+_camTo.z**2);
@@ -2273,6 +2280,7 @@ let _ipActive=false;
       const curA=_iSwFA+(_iSwTA-_iSwFA)*e;
       const curY=_camFrom.y+(_camTo.y-_camFrom.y)*e;
       cam.position.set(curR*Math.cos(curA),curY,curR*Math.sin(curA));
+      // lookAt blends toward ctrl.target (0,0,0) throughout — no orientation snap
       cam.lookAt(0,0,0);
       // Fog fades from near-zero to game density as camera descends
       scene.fog.density=0.0003+p*(0.011-0.0003);
@@ -2289,13 +2297,18 @@ let _ipActive=false;
       if(p>=1){
         scene.fog.density=0.011;
         _introActive=false;
-        _ipActive=false; _ipMesh.visible=false; // cleanup particles
-        cam.position.copy(_camTo); // exact landing — no float drift
-        ctrl.enabled=true;
+        _ipActive=false; _ipMesh.visible=false;
+        // Land at phi-correct position — OrbitControls polar clamp = no snap
+        cam.position.copy(_camTo);
+        cam.lookAt(0,0,0);
         ctrl.target.set(0,0,0);
-        // Hard-reset OrbitControls internal state — eliminates damping bounce
-        ctrl.enableDamping=false; ctrl.update(); ctrl.update(); ctrl.enableDamping=true;
-        // Remove cinematic overlays
+        ctrl.enabled=true;
+        // Disable damping for ONE update so OrbitControls snapshots spherical
+        // from current cam without any leftover velocity — then re-enable
+        ctrl.enableDamping=false;
+        ctrl.update();
+        ctrl.enableDamping=true;
+        // Cinematic teardown
         document.getElementById('intro-bars').classList.add('out');
         document.getElementById('intro-vignette').classList.remove('show');
         document.getElementById('intro-vignette').classList.add('out');
